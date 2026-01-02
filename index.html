@@ -1,0 +1,754 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="dark">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="description" content="Universal roster and qualification tracking tool for Marines. Import data from MOL, MCTIMS, MarineNet. Track qualifications, licenses, training status. Survives PCS turnover.">
+  <meta name="keywords" content="USMC, TEEP, training tracker, qualification tracker, Marine Corps, personnel tracker, MOL, MCTIMS, MarineNet, S-3, training NCO">
+  <title>TEEP Tracker - USMC Tools</title>
+
+  <!-- PWA -->
+  <link rel="manifest" href="manifest.json">
+  <meta name="theme-color" content="#8B1538">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="apple-mobile-web-app-title" content="TEEP">
+  <link rel="apple-touch-icon" href="assets/icon-192.png">
+
+  <!-- Styles -->
+  <link rel="stylesheet" href="css/styles.css">
+</head>
+<body>
+  <!-- Skip Link - Accessibility -->
+  <a href="#main" class="skip-link">Skip to main content</a>
+
+  <!-- Header -->
+  <header class="header no-print">
+    <div class="container">
+      <div class="header__container">
+        <div class="header__brand">
+          <span class="header__logo" aria-hidden="true">&#128203;</span>
+          <div>
+            <h1 class="header__title">TEEP TRACKER</h1>
+            <p class="header__subtitle">Personnel Qualification & Training Tracker</p>
+          </div>
+        </div>
+        <div class="header__actions">
+          <button type="button" class="header-btn" id="importBtn" title="Import Data">
+            <span aria-hidden="true">&#8593;</span> Import
+          </button>
+          <button type="button" class="header-btn" id="exportBtn" title="Export Backup">
+            <span aria-hidden="true">&#8595;</span> Export
+          </button>
+          <button type="button" class="theme-toggle" id="themeToggle" aria-label="Toggle theme" title="Toggle theme">
+            <span id="themeIcon" aria-hidden="true">&#9790;</span>
+          </button>
+        </div>
+      </div>
+    </div>
+  </header>
+  <div class="header-accent"></div>
+
+  <!-- Tagline Bar -->
+  <div class="tagline-bar no-print">
+    Free tool for Marines &bull; <a href="https://github.com/jeranaias/teep-tracker#readme" target="_blank">Documentation &amp; Guide &rarr;</a>
+  </div>
+
+  <!-- Navigation Tabs -->
+  <nav class="nav-tabs no-print" role="tablist">
+    <button class="nav-tab active" data-view="dashboard" role="tab" aria-selected="true">Dashboard</button>
+    <button class="nav-tab" data-view="roster" role="tab" aria-selected="false">Roster</button>
+    <button class="nav-tab" data-view="find" role="tab" aria-selected="false">Find Qualified</button>
+    <button class="nav-tab" data-view="expirations" role="tab" aria-selected="false">Expirations</button>
+    <button class="nav-tab" data-view="reports" role="tab" aria-selected="false">Reports</button>
+  </nav>
+
+  <!-- Main Content -->
+  <main id="main" class="container main-content">
+
+    <!-- Dashboard View -->
+    <section id="dashboardView" class="view-section active" role="tabpanel">
+      <div class="view__header">
+        <h2 class="view__title">Dashboard</h2>
+      </div>
+
+      <!-- Stats Grid -->
+      <div class="stats-grid">
+        <div class="stat-card stat-card--info">
+          <div class="stat-card__value" id="statTotalPersonnel">0</div>
+          <div class="stat-card__label">Total Personnel</div>
+        </div>
+        <div class="stat-card stat-card--success">
+          <div class="stat-card__value" id="statCurrent">0</div>
+          <div class="stat-card__label">All Current</div>
+        </div>
+        <div class="stat-card stat-card--warning">
+          <div class="stat-card__value" id="statExpiring">0</div>
+          <div class="stat-card__label">Expiring (30 days)</div>
+        </div>
+        <div class="stat-card stat-card--error">
+          <div class="stat-card__value" id="statExpired">0</div>
+          <div class="stat-card__label">Overdue</div>
+        </div>
+      </div>
+
+      <!-- Quick Actions -->
+      <div class="card">
+        <div class="card__header">
+          <h3 class="card__title">Quick Actions</h3>
+        </div>
+        <div class="flex flex-wrap gap-3">
+          <button class="btn btn--primary" id="quickImport">
+            <span aria-hidden="true">&#8593;</span> Import Data
+          </button>
+          <button class="btn btn--outline" id="quickAddMarine">
+            <span aria-hidden="true">+</span> Add Marine
+          </button>
+          <button class="btn btn--outline" id="quickFindQual">
+            <span aria-hidden="true">&#128269;</span> Find Qualified
+          </button>
+          <button class="btn btn--outline" id="quickExport">
+            <span aria-hidden="true">&#8595;</span> Export Backup
+          </button>
+        </div>
+      </div>
+
+      <!-- Recent Expirations Alert -->
+      <div class="card" id="dashboardAlerts">
+        <div class="card__header">
+          <h3 class="card__title">Attention Required</h3>
+        </div>
+        <div id="alertsList">
+          <!-- Populated by JS -->
+        </div>
+        <div class="empty-state hidden" id="noAlertsState">
+          <div class="empty-state__icon">&#9989;</div>
+          <div class="empty-state__title">All Clear</div>
+          <p class="empty-state__text">No overdue or expiring qualifications.</p>
+        </div>
+      </div>
+
+      <!-- Getting Started (shown when no data) -->
+      <div class="card hidden" id="gettingStarted">
+        <div class="card__header">
+          <h3 class="card__title">Getting Started</h3>
+        </div>
+        <div class="alert alert--info mb-4">
+          <span aria-hidden="true">&#128161;</span>
+          <div>
+            <strong>Welcome to TEEP Tracker!</strong><br>
+            Import your roster from MOL, MCTIMS, or MarineNet exports (CSV/Excel), or add Marines manually.
+          </div>
+        </div>
+        <ol style="padding-left: var(--space-6); color: var(--text-secondary);">
+          <li style="margin-bottom: var(--space-2);">Export your roster from MOL, MCTIMS, or MarineNet as CSV/Excel</li>
+          <li style="margin-bottom: var(--space-2);">Click <strong>Import Data</strong> and upload the file</li>
+          <li style="margin-bottom: var(--space-2);">Map the columns to match our fields</li>
+          <li style="margin-bottom: var(--space-2);">Track qualifications, view expirations, and query by requirements</li>
+        </ol>
+        <div class="mt-4">
+          <button class="btn btn--primary btn--lg" id="startImport">
+            <span aria-hidden="true">&#8593;</span> Import Your First Roster
+          </button>
+        </div>
+      </div>
+    </section>
+
+    <!-- Roster View -->
+    <section id="rosterView" class="view-section" role="tabpanel">
+      <div class="view__header">
+        <h2 class="view__title">Unit Roster</h2>
+        <div class="view__actions">
+          <button class="btn btn--primary" id="addMarineBtn">
+            <span aria-hidden="true">+</span> Add Marine
+          </button>
+          <button class="btn btn--outline" id="rosterImportBtn">
+            <span aria-hidden="true">&#8593;</span> Import
+          </button>
+        </div>
+      </div>
+
+      <!-- Filter Bar -->
+      <div class="filter-bar">
+        <div class="search-input" style="flex: 2;">
+          <span class="search-input__icon" aria-hidden="true">&#128269;</span>
+          <input type="text" class="input" id="rosterSearch" placeholder="Search by name, EDIPI, MOS...">
+        </div>
+        <select class="input select" id="filterMOS">
+          <option value="">All MOS</option>
+        </select>
+        <select class="input select" id="filterStatus">
+          <option value="">All Status</option>
+          <option value="present">Present</option>
+          <option value="leave">On Leave</option>
+          <option value="tad">TAD</option>
+          <option value="deployment">Deployed</option>
+          <option value="medical">Medical Hold</option>
+        </select>
+        <select class="input select" id="filterQualStatus">
+          <option value="">All Qual Status</option>
+          <option value="current">All Current</option>
+          <option value="expiring">Expiring Soon</option>
+          <option value="expired">Has Expired</option>
+        </select>
+      </div>
+
+      <!-- Roster List -->
+      <div id="rosterList">
+        <!-- Populated by JS -->
+      </div>
+
+      <!-- Empty State -->
+      <div class="empty-state" id="rosterEmptyState">
+        <div class="empty-state__icon">&#128101;</div>
+        <div class="empty-state__title">No Personnel</div>
+        <p class="empty-state__text">Import a roster or add Marines manually to get started.</p>
+        <button class="btn btn--primary" id="emptyImportBtn">Import Roster</button>
+      </div>
+
+      <!-- Pagination -->
+      <div class="flex justify-between items-center mt-4 hidden" id="rosterPagination">
+        <span class="text-sm text-secondary" id="rosterCount">Showing 0 of 0 Marines</span>
+        <div class="flex gap-2">
+          <button class="btn btn--sm btn--outline" id="prevPage" disabled>&larr; Prev</button>
+          <button class="btn btn--sm btn--outline" id="nextPage">Next &rarr;</button>
+        </div>
+      </div>
+    </section>
+
+    <!-- Find Qualified View -->
+    <section id="findView" class="view-section" role="tabpanel">
+      <div class="view__header">
+        <h2 class="view__title">Find Qualified Personnel</h2>
+      </div>
+
+      <div class="query-builder">
+        <div class="query-section">
+          <div class="query-section__title">I need Marines who have:</div>
+          <div class="query-options" id="qualificationOptions">
+            <!-- Populated by JS -->
+          </div>
+        </div>
+
+        <div class="query-section">
+          <div class="query-section__title">AND are NOT currently:</div>
+          <div class="query-options" id="statusExclusions">
+            <label class="checkbox-label">
+              <input type="checkbox" class="checkbox" value="leave"> On Leave
+            </label>
+            <label class="checkbox-label">
+              <input type="checkbox" class="checkbox" value="tad"> TAD
+            </label>
+            <label class="checkbox-label">
+              <input type="checkbox" class="checkbox" value="deployment"> Deployed
+            </label>
+            <label class="checkbox-label">
+              <input type="checkbox" class="checkbox" value="med_hold"> Medical Hold
+            </label>
+            <label class="checkbox-label">
+              <input type="checkbox" class="checkbox" value="school"> At School
+            </label>
+          </div>
+        </div>
+
+        <div class="flex gap-3 mt-6">
+          <button class="btn btn--primary btn--lg" id="runQuery">
+            <span aria-hidden="true">&#128269;</span> Search
+          </button>
+          <button class="btn btn--outline" id="clearQuery">Clear</button>
+        </div>
+      </div>
+
+      <!-- Results -->
+      <div class="card mt-6 hidden" id="queryResults">
+        <div class="card__header flex justify-between items-center">
+          <h3 class="card__title">Results: <span id="resultCount">0</span> Marines Match</h3>
+          <div class="flex gap-2">
+            <button class="btn btn--sm btn--outline" id="exportQueryResults">Export List</button>
+            <button class="btn btn--sm btn--outline" id="printQueryResults">Print</button>
+          </div>
+        </div>
+        <div id="queryResultsList">
+          <!-- Populated by JS -->
+        </div>
+      </div>
+    </section>
+
+    <!-- Expirations View -->
+    <section id="expirationsView" class="view-section" role="tabpanel">
+      <div class="view__header">
+        <h2 class="view__title">Expiring Qualifications</h2>
+        <div class="view__actions">
+          <button class="btn btn--outline" id="exportExpirations">
+            <span aria-hidden="true">&#8595;</span> Export
+          </button>
+          <button class="btn btn--outline" id="printExpirations">
+            <span aria-hidden="true">&#128424;</span> Print
+          </button>
+        </div>
+      </div>
+
+      <!-- Expiration Sections -->
+      <div class="card" id="overdueSection">
+        <div class="card__header" style="border-left-color: var(--error);">
+          <h3 class="card__title" style="color: var(--error);">&#9888; Overdue</h3>
+        </div>
+        <div id="overdueList">
+          <!-- Populated by JS -->
+        </div>
+        <div class="text-center text-secondary hidden" id="noOverdue">No overdue qualifications</div>
+      </div>
+
+      <div class="card" id="expiring30Section">
+        <div class="card__header" style="border-left-color: var(--warning);">
+          <h3 class="card__title" style="color: var(--warning);">&#9888; Expiring in 30 Days</h3>
+        </div>
+        <div id="expiring30List">
+          <!-- Populated by JS -->
+        </div>
+        <div class="text-center text-secondary hidden" id="noExpiring30">No qualifications expiring in 30 days</div>
+      </div>
+
+      <div class="card" id="expiring90Section">
+        <div class="card__header" style="border-left-color: var(--status-current);">
+          <h3 class="card__title">Expiring in 31-90 Days</h3>
+        </div>
+        <div id="expiring90List">
+          <!-- Populated by JS -->
+        </div>
+        <div class="text-center text-secondary hidden" id="noExpiring90">No qualifications expiring in 31-90 days</div>
+      </div>
+    </section>
+
+    <!-- Reports View -->
+    <section id="reportsView" class="view-section" role="tabpanel">
+      <div class="view__header">
+        <h2 class="view__title">Reports</h2>
+      </div>
+
+      <div class="grid gap-4" style="grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));">
+        <div class="card">
+          <div class="card__header">
+            <h3 class="card__title">Full Roster</h3>
+          </div>
+          <p class="text-secondary text-sm mb-4">Complete personnel list with all qualifications</p>
+          <div class="flex gap-2">
+            <button class="btn btn--sm btn--primary" data-report="full-roster" data-format="pdf">PDF</button>
+            <button class="btn btn--sm btn--outline" data-report="full-roster" data-format="csv">CSV</button>
+          </div>
+        </div>
+
+        <div class="card">
+          <div class="card__header">
+            <h3 class="card__title">Training Matrix</h3>
+          </div>
+          <p class="text-secondary text-sm mb-4">Personnel x Qualifications grid view</p>
+          <div class="flex gap-2">
+            <button class="btn btn--sm btn--primary" data-report="training-matrix" data-format="pdf">PDF</button>
+            <button class="btn btn--sm btn--outline" data-report="training-matrix" data-format="csv">CSV</button>
+          </div>
+        </div>
+
+        <div class="card">
+          <div class="card__header">
+            <h3 class="card__title">License Roster</h3>
+          </div>
+          <p class="text-secondary text-sm mb-4">Motor T / equipment license status</p>
+          <div class="flex gap-2">
+            <button class="btn btn--sm btn--primary" data-report="license-roster" data-format="pdf">PDF</button>
+            <button class="btn btn--sm btn--outline" data-report="license-roster" data-format="csv">CSV</button>
+          </div>
+        </div>
+
+        <div class="card">
+          <div class="card__header">
+            <h3 class="card__title">Expiration Report</h3>
+          </div>
+          <p class="text-secondary text-sm mb-4">Upcoming and overdue qualifications</p>
+          <div class="flex gap-2">
+            <button class="btn btn--sm btn--primary" data-report="expiration" data-format="pdf">PDF</button>
+            <button class="btn btn--sm btn--outline" data-report="expiration" data-format="csv">CSV</button>
+          </div>
+        </div>
+
+        <div class="card">
+          <div class="card__header">
+            <h3 class="card__title">Special Billet Roster</h3>
+          </div>
+          <p class="text-secondary text-sm mb-4">Collateral duty assignments</p>
+          <div class="flex gap-2">
+            <button class="btn btn--sm btn--primary" data-report="billet-roster" data-format="pdf">PDF</button>
+            <button class="btn btn--sm btn--outline" data-report="billet-roster" data-format="csv">CSV</button>
+          </div>
+        </div>
+
+        <div class="card">
+          <div class="card__header">
+            <h3 class="card__title">FY Training Status</h3>
+          </div>
+          <p class="text-secondary text-sm mb-4">Annual training completion by FY</p>
+          <div class="flex gap-2">
+            <button class="btn btn--sm btn--primary" data-report="fy-training" data-format="pdf">PDF</button>
+            <button class="btn btn--sm btn--outline" data-report="fy-training" data-format="csv">CSV</button>
+          </div>
+        </div>
+      </div>
+    </section>
+
+  </main>
+
+  <!-- Import Modal -->
+  <div class="modal-overlay" id="importModal">
+    <div class="modal modal--lg">
+      <div class="modal__header">
+        <h3 class="modal__title">Import Data</h3>
+        <button class="modal__close" id="closeImportModal">&times;</button>
+      </div>
+      <div class="modal__body">
+        <!-- Step 1: Upload -->
+        <div id="importStep1">
+          <div class="import-dropzone" id="importDropzone">
+            <div class="import-dropzone__icon">&#128194;</div>
+            <div class="import-dropzone__text">Drop CSV or Excel file here</div>
+            <div class="import-dropzone__hint">or click to browse</div>
+            <input type="file" id="importFileInput" accept=".csv,.xlsx,.xls">
+          </div>
+          <p class="text-center text-secondary mt-4 text-sm">
+            Supports exports from MOL, MCTIMS, MarineNet, GCSS-MC, and custom spreadsheets
+          </p>
+        </div>
+
+        <!-- Step 2: Column Mapping -->
+        <div id="importStep2" class="hidden">
+          <div class="alert alert--info mb-4">
+            <span aria-hidden="true">&#128161;</span>
+            <div>Map your file columns to our fields. Auto-detection has pre-filled likely matches.</div>
+          </div>
+          <div class="column-mapping" id="columnMapping">
+            <!-- Populated by JS -->
+          </div>
+          <div class="import-preview mt-4">
+            <div class="import-preview__title">Preview (first 5 rows)</div>
+            <div class="table-container">
+              <table class="table" id="importPreviewTable">
+                <!-- Populated by JS -->
+              </table>
+            </div>
+          </div>
+        </div>
+
+        <!-- Step 3: Confirm -->
+        <div id="importStep3" class="hidden">
+          <div class="alert alert--success mb-4">
+            <span aria-hidden="true">&#9989;</span>
+            <div id="importSummary">
+              <!-- Populated by JS -->
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="modal__footer">
+        <button class="btn btn--outline" id="importBack" disabled>Back</button>
+        <button class="btn btn--primary" id="importNext">Next</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Add/Edit Marine Modal -->
+  <div class="modal-overlay" id="marineModal">
+    <div class="modal modal--lg">
+      <div class="modal__header">
+        <h3 class="modal__title" id="marineModalTitle">Add Marine</h3>
+        <button class="modal__close" id="closeMarineModal">&times;</button>
+      </div>
+      <div class="modal__body">
+        <form id="marineForm">
+          <input type="hidden" id="marineId">
+
+          <!-- Basic Info -->
+          <div class="card card--no-accent mb-4">
+            <div class="card__header">
+              <h4 class="card__title">Basic Information</h4>
+            </div>
+            <div class="form-row">
+              <div class="form-group">
+                <label class="label label--required" for="marineRank">Rank</label>
+                <select class="input select" id="marineRank" required>
+                  <option value="">Select Rank</option>
+                  <optgroup label="Enlisted">
+                    <option value="Pvt">Pvt</option>
+                    <option value="PFC">PFC</option>
+                    <option value="LCpl">LCpl</option>
+                    <option value="Cpl">Cpl</option>
+                    <option value="Sgt">Sgt</option>
+                    <option value="SSgt">SSgt</option>
+                    <option value="GySgt">GySgt</option>
+                    <option value="MSgt">MSgt</option>
+                    <option value="1stSgt">1stSgt</option>
+                    <option value="MGySgt">MGySgt</option>
+                    <option value="SgtMaj">SgtMaj</option>
+                  </optgroup>
+                  <optgroup label="Warrant Officers">
+                    <option value="WO">WO</option>
+                    <option value="CWO2">CWO2</option>
+                    <option value="CWO3">CWO3</option>
+                    <option value="CWO4">CWO4</option>
+                    <option value="CWO5">CWO5</option>
+                  </optgroup>
+                  <optgroup label="Officers">
+                    <option value="2ndLt">2ndLt</option>
+                    <option value="1stLt">1stLt</option>
+                    <option value="Capt">Capt</option>
+                    <option value="Maj">Maj</option>
+                    <option value="LtCol">LtCol</option>
+                    <option value="Col">Col</option>
+                  </optgroup>
+                </select>
+              </div>
+              <div class="form-group">
+                <label class="label label--required" for="marineLastName">Last Name</label>
+                <input type="text" class="input" id="marineLastName" required placeholder="SMITH">
+              </div>
+              <div class="form-group">
+                <label class="label label--required" for="marineFirstName">First Name</label>
+                <input type="text" class="input" id="marineFirstName" required placeholder="JOHN">
+              </div>
+              <div class="form-group" style="flex: 0 0 80px; min-width: 80px;">
+                <label class="label" for="marineMI">MI</label>
+                <input type="text" class="input" id="marineMI" maxlength="1" placeholder="A">
+              </div>
+            </div>
+            <div class="form-row">
+              <div class="form-group">
+                <label class="label" for="marineEDIPI">EDIPI (DoD ID)</label>
+                <input type="text" class="input" id="marineEDIPI" placeholder="1234567890" maxlength="10">
+              </div>
+              <div class="form-group">
+                <label class="label" for="marineMOS">Primary MOS</label>
+                <input type="text" class="input" id="marineMOS" placeholder="0311" maxlength="4">
+              </div>
+              <div class="form-group">
+                <label class="label" for="marineBillet">Billet</label>
+                <input type="text" class="input" id="marineBillet" placeholder="Platoon Sergeant">
+              </div>
+            </div>
+          </div>
+
+          <!-- Key Dates -->
+          <div class="card card--no-accent mb-4">
+            <div class="card__header">
+              <h4 class="card__title">Key Dates</h4>
+            </div>
+            <div class="form-row">
+              <div class="form-group">
+                <label class="label" for="marineEAS">EAS</label>
+                <input type="date" class="input" id="marineEAS">
+                <div class="help-text">Critical for license expiration calculations</div>
+              </div>
+              <div class="form-group">
+                <label class="label" for="marineDOR">Date of Rank</label>
+                <input type="date" class="input" id="marineDOR">
+              </div>
+              <div class="form-group">
+                <label class="label" for="marinePEBD">PEBD</label>
+                <input type="date" class="input" id="marinePEBD">
+              </div>
+            </div>
+          </div>
+
+          <!-- Status -->
+          <div class="card card--no-accent">
+            <div class="card__header">
+              <h4 class="card__title">Current Status</h4>
+            </div>
+            <div class="form-row">
+              <div class="form-group">
+                <label class="label" for="marineStatus">Status</label>
+                <select class="input select" id="marineStatus">
+                  <option value="present">Present for Duty</option>
+                  <option value="leave">On Leave</option>
+                  <option value="tad">TAD/TDY</option>
+                  <option value="deployment">Deployed</option>
+                  <option value="med_hold">Medical Hold</option>
+                  <option value="light_duty">Light Duty/LIMDU</option>
+                  <option value="siq">SIQ</option>
+                  <option value="restriction">Restriction</option>
+                  <option value="school">At School</option>
+                  <option value="pcs_pending">PCS Pending</option>
+                  <option value="eas_pending">EAS Pending</option>
+                </select>
+              </div>
+              <div class="form-group">
+                <label class="label" for="marineStatusEnd">Expected Return</label>
+                <input type="date" class="input" id="marineStatusEnd">
+              </div>
+            </div>
+            <div class="form-group">
+              <label class="label" for="marineNotes">Notes</label>
+              <textarea class="input textarea" id="marineNotes" rows="2" placeholder="Optional notes..."></textarea>
+            </div>
+          </div>
+        </form>
+      </div>
+      <div class="modal__footer">
+        <button class="btn btn--outline" id="cancelMarineModal">Cancel</button>
+        <button class="btn btn--primary" id="saveMarineBtn">Save Marine</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- View Marine Modal -->
+  <div class="modal-overlay" id="viewMarineModal">
+    <div class="modal modal--lg">
+      <div class="modal__header">
+        <h3 class="modal__title" id="viewMarineTitle">Marine Details</h3>
+        <button class="modal__close" id="closeViewMarineModal">&times;</button>
+      </div>
+      <div class="modal__body" id="viewMarineContent">
+        <!-- Populated by JS -->
+      </div>
+      <div class="modal__footer">
+        <button class="btn btn--outline" id="editMarineBtn">Edit</button>
+        <button class="btn btn--danger" id="deleteMarineBtn">Delete</button>
+        <button class="btn btn--primary" id="addQualBtn">Add Qualification</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Add Qualification Modal -->
+  <div class="modal-overlay" id="qualModal">
+    <div class="modal">
+      <div class="modal__header">
+        <h3 class="modal__title">Add Qualification</h3>
+        <button class="modal__close" id="closeQualModal">&times;</button>
+      </div>
+      <div class="modal__body">
+        <form id="qualForm">
+          <input type="hidden" id="qualMarineId">
+          <div class="form-group">
+            <label class="label label--required" for="qualType">Qualification Type</label>
+            <select class="input select" id="qualType" required>
+              <option value="">Select Qualification</option>
+              <optgroup label="Annual Training (CY Window)">
+                <option value="pft">PFT</option>
+                <option value="cft">CFT</option>
+              </optgroup>
+              <optgroup label="Annual Training (FY)">
+                <option value="rifle">Rifle Qualification</option>
+                <option value="pistol">Pistol Qualification</option>
+                <option value="cyber_awareness">Cyber Awareness Challenge</option>
+                <option value="opsec">OPSEC Awareness</option>
+                <option value="sapr">SAPR Annual Training</option>
+                <option value="suicide_prev">Suicide Prevention (NLMB)</option>
+                <option value="at_level1">Antiterrorism Level 1</option>
+                <option value="sere">SERE 100.2</option>
+                <option value="pii">PII/Privacy Act Training</option>
+                <option value="ctip">Combating Trafficking in Persons</option>
+                <option value="eo">Equal Opportunity Training</option>
+              </optgroup>
+              <optgroup label="Licenses (Rolling)">
+                <option value="hmmwv">HMMWV License</option>
+                <option value="7ton">7-Ton License</option>
+                <option value="mtvr">MTVR License</option>
+                <option value="lvsr">LVSR License</option>
+                <option value="forklift">Forklift License</option>
+              </optgroup>
+              <optgroup label="Certifications (Rolling)">
+                <option value="swim">Swim Qualification</option>
+                <option value="range_coach">Range Coach</option>
+                <option value="pmi">Primary Marksmanship Instructor</option>
+                <option value="rso">Range Safety Officer</option>
+                <option value="sapr_va">SAPR Victim Advocate</option>
+                <option value="eo_rep">EO Representative</option>
+                <option value="caco">CACO</option>
+              </optgroup>
+              <optgroup label="Permanent">
+                <option value="mcmap">MCMAP Belt</option>
+                <option value="mos_school">MOS School</option>
+                <option value="pme">PME Completion</option>
+              </optgroup>
+            </select>
+          </div>
+          <div class="form-group">
+            <label class="label label--required" for="qualDate">Completion Date</label>
+            <input type="date" class="input" id="qualDate" required>
+          </div>
+          <div class="form-group" id="qualScoreGroup">
+            <label class="label" for="qualScore">Score/Classification</label>
+            <input type="text" class="input" id="qualScore" placeholder="e.g., 285, Expert, Green Belt">
+          </div>
+          <div class="form-group">
+            <label class="label" for="qualNotes">Notes</label>
+            <input type="text" class="input" id="qualNotes" placeholder="Optional notes">
+          </div>
+        </form>
+      </div>
+      <div class="modal__footer">
+        <button class="btn btn--outline" id="cancelQualModal">Cancel</button>
+        <button class="btn btn--primary" id="saveQualBtn">Save Qualification</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Export Modal -->
+  <div class="modal-overlay" id="exportModal">
+    <div class="modal">
+      <div class="modal__header">
+        <h3 class="modal__title">Export Data</h3>
+        <button class="modal__close" id="closeExportModal">&times;</button>
+      </div>
+      <div class="modal__body">
+        <p class="mb-4">Export your complete TEEP data for backup or transfer to the next person.</p>
+        <div class="alert alert--info mb-4">
+          <span aria-hidden="true">&#128161;</span>
+          <div>
+            <strong>Turnover Tip:</strong> Export this JSON file before you PCS. The incoming Marine can import it to pick up exactly where you left off.
+          </div>
+        </div>
+        <div class="flex flex-col gap-3">
+          <button class="btn btn--primary btn--full" id="exportJSON">
+            <span aria-hidden="true">&#128190;</span> Export Full Backup (JSON)
+          </button>
+          <button class="btn btn--outline btn--full" id="exportCSV">
+            <span aria-hidden="true">&#128196;</span> Export Roster (CSV)
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Toast Container -->
+  <div class="toast-container" id="toastContainer"></div>
+
+  <!-- Footer -->
+  <footer class="footer no-print">
+    <div class="container">
+      <p>TEEP Tracker v1.0 &bull; Part of <a href="https://jeranaias.github.io/usmc-tools/">USMC Tools</a></p>
+      <p class="mt-2"><a href="https://github.com/jeranaias/teep-tracker" target="_blank">View on GitHub</a></p>
+    </div>
+  </footer>
+
+  <!-- Libraries (CDN) -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.4.1/papaparse.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.5.31/jspdf.plugin.autotable.min.js"></script>
+
+  <!-- App Scripts -->
+  <script src="js/storage.js"></script>
+  <script src="js/qualifications.js"></script>
+  <script src="js/import.js"></script>
+  <script src="js/roster.js"></script>
+  <script src="js/reports.js"></script>
+  <script src="js/app.js"></script>
+
+  <!-- Service Worker Registration -->
+  <script>
+    if ('serviceWorker' in navigator) {
+      navigator.serviceWorker.register('service-worker.js')
+        .then(reg => console.log('Service Worker registered'))
+        .catch(err => console.warn('Service Worker registration failed:', err));
+    }
+  </script>
+</body>
+</html>
